@@ -127,7 +127,7 @@ class MG_Asset_Download {
      * @param int $limit The number of posts to retrieve
      * @return array Array of posts
      */
-    private function get_unprocessed_posts($limit = 5) {
+    public function get_unprocessed_posts($limit = 5) {
         $args = array(
             'post_type' => array('post', 'page'),
             'posts_per_page' => $limit,
@@ -154,7 +154,7 @@ class MG_Asset_Download {
      *
      * @param WP_Post $post The post to process
      */
-    private function process_post($post) {
+    public function process_post($post) {
         $content = $post->post_content;
         
         // Initially mark as processing to prevent duplicate processing

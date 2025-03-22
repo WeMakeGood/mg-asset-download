@@ -59,13 +59,27 @@ class MG_Asset_Download_Admin {
     /**
      * Enqueue admin scripts
      */
-    public function enqueue_scripts() {
+    public function enqueue_scripts($hook) {
+        // Only load on our plugin page
+        if ('tools_page_mg-asset-download' !== $hook) {
+            return;
+        }
+        
         wp_enqueue_script(
             'mg-asset-download-admin',
             MG_ASSET_DOWNLOAD_URL . 'admin/js/mg-asset-download-admin.js',
             array('jquery'),
             MG_ASSET_DOWNLOAD_VERSION,
             false
+        );
+        
+        // Localize script with nonce
+        wp_localize_script(
+            'mg-asset-download-admin',
+            'mg_asset_download_vars',
+            array(
+                'nonce' => wp_create_nonce('mg_asset_download_ajax_nonce')
+            )
         );
     }
 
@@ -148,6 +162,24 @@ class MG_Asset_Download_Admin {
                         <?php _e('Process Assets Now', 'mg-asset-download'); ?>
                     </button>
                 </form>
+                
+                <div class="mg-ajax-progress" style="display: none; margin-top: 20px;">
+                    <h3><?php _e('Processing Progress', 'mg-asset-download'); ?></h3>
+                    <p>
+                        <?php _e('Posts Processed:', 'mg-asset-download'); ?> 
+                        <span class="mg-ajax-progress-count">0</span>
+                    </p>
+                    
+                    <div class="mg-progress-bar-container">
+                        <div class="mg-ajax-progress-bar mg-progress-bar" style="width: 0%;">
+                            <span>0%</span>
+                        </div>
+                    </div>
+                    
+                    <p class="mg-ajax-progress-status">
+                        <?php _e('Starting...', 'mg-asset-download'); ?>
+                    </p>
+                </div>
             </div>
         </div>
         <?php
@@ -177,6 +209,49 @@ class MG_Asset_Download_Admin {
     }
 
     /**
+     * Handle AJAX request to process a single post
+     */
+    public function ajax_process_post() {
+        // Check security nonce
+        if (!isset($_POST['security']) || !wp_verify_nonce($_POST['security'], 'mg_asset_download_ajax_nonce')) {
+            wp_send_json_error(array('message' => 'Security check failed'));
+        }
+        
+        // Get the next unprocessed post
+        $posts = $this->plugin->get_unprocessed_posts(1);
+        
+        // Get counts for progress calculation
+        $counts = $this->plugin->get_post_counts();
+        $total = $counts['total'];
+        
+        // Check if we have a post to process
+        if (empty($posts)) {
+            // No more posts to process
+            wp_send_json_success(array(
+                'complete' => true,
+                'total' => $total,
+                'message' => 'All posts have been processed'
+            ));
+        }
+        
+        // Process the post
+        $post = $posts[0];
+        $this->plugin->process_post($post);
+        
+        // Update the last run time
+        update_option(MG_Asset_Download::LAST_RUN_OPTION, current_time('mysql'));
+        
+        // Send success response
+        wp_send_json_success(array(
+            'complete' => false,
+            'post_id' => $post->ID,
+            'post_title' => $post->post_title,
+            'total' => $total,
+            'message' => 'Post processed successfully'
+        ));
+    }
+
+    /**
      * Run the admin class
      */
     public function run() {
@@ -192,5 +267,8 @@ class MG_Asset_Download_Admin {
         
         // Process manual run
         add_action('admin_init', array($this, 'process_manual_run'));
+        
+        // AJAX handlers
+        add_action('wp_ajax_mg_asset_download_process_post', array($this, 'ajax_process_post'));
     }
 }
