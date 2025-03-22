@@ -3,7 +3,7 @@
  * Plugin Name: MG Asset Download
  * Plugin URI: https://wemakegood.org
  * Description: Downloads external assets from posts/pages, adds them to the Media Library, and updates links.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Christopher Frazier
  * Author URI: https://wemakegood.org
  * Text Domain: mg-asset-download
@@ -16,7 +16,7 @@ if (!defined('WPINC')) {
 }
 
 // Define plugin constants
-define('MG_ASSET_DOWNLOAD_VERSION', '1.0.0');
+define('MG_ASSET_DOWNLOAD_VERSION', '1.0.1');
 define('MG_ASSET_DOWNLOAD_PATH', plugin_dir_path(__FILE__));
 define('MG_ASSET_DOWNLOAD_URL', plugin_dir_url(__FILE__));
 
