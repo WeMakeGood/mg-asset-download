@@ -23,6 +23,11 @@ class MG_Asset_Download {
      * The last run option key
      */
     const LAST_RUN_OPTION = 'mg_asset_download_last_run';
+    
+    /**
+     * The manual processing lock option key
+     */
+    const MANUAL_PROCESSING_LOCK = 'mg_asset_download_manual_processing';
 
     /**
      * Initialize the plugin
@@ -101,6 +106,13 @@ class MG_Asset_Download {
      * Process a batch of posts/pages
      */
     public function process_batch() {
+        // Check if manual processing is active
+        $manual_processing = get_option(self::MANUAL_PROCESSING_LOCK, false);
+        if ($manual_processing) {
+            // Skip processing if manual processing is active
+            return;
+        }
+        
         // Set time limit to avoid timeout
         @set_time_limit(300);
 

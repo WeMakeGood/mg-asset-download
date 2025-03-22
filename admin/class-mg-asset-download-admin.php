@@ -93,6 +93,9 @@ class MG_Asset_Download_Admin {
         // Get last run time
         $last_run = get_option(MG_Asset_Download::LAST_RUN_OPTION, 'Never');
         
+        // Check for manual processing lock
+        $manual_processing = get_option(MG_Asset_Download::MANUAL_PROCESSING_LOCK, false);
+        
         // Check if process is complete
         $is_complete = $counts['total'] > 0 && $counts['processed'] >= $counts['total'];
         
@@ -134,6 +137,41 @@ class MG_Asset_Download_Admin {
                     <strong><?php _e('Last Run:', 'mg-asset-download'); ?></strong> 
                     <?php echo esc_html($last_run); ?>
                 </p>
+                
+                <?php if ($manual_processing): ?>
+                <p>
+                    <span class="mg-processing-badge"><?php _e('Manual Processing Active', 'mg-asset-download'); ?></span>
+                    <span class="mg-processing-info"><?php _e('Started at:', 'mg-asset-download'); ?> <?php echo esc_html($manual_processing); ?></span>
+                    <br>
+                    <em><?php _e('Note: Automated cron processing is paused while manual processing is active.', 'mg-asset-download'); ?></em>
+                </p>
+                
+                <?php 
+                // Check if the lock might be stale (older than 10 minutes)
+                $lock_time = strtotime($manual_processing);
+                $current_time = current_time('timestamp');
+                $lock_age_minutes = round(($current_time - $lock_time) / 60);
+                
+                if ($lock_age_minutes > 10):
+                ?>
+                <div class="notice notice-warning">
+                    <p>
+                        <strong><?php _e('Manual processing lock may be stale', 'mg-asset-download'); ?></strong>
+                        <?php printf(
+                            __('The manual processing lock was set %d minutes ago and may be stale. If no manual processing is currently running, you can clear the lock.', 'mg-asset-download'),
+                            $lock_age_minutes
+                        ); ?>
+                    </p>
+                    <form method="post" action="">
+                        <?php wp_nonce_field('mg_asset_download_clear_lock', 'mg_clear_lock_nonce'); ?>
+                        <input type="hidden" name="action" value="mg_asset_download_clear_lock">
+                        <button type="submit" class="button button-secondary">
+                            <?php _e('Clear Manual Processing Lock', 'mg-asset-download'); ?>
+                        </button>
+                    </form>
+                </div>
+                <?php endif; ?>
+                <?php endif; ?>
                 
                 <?php if ($is_complete): ?>
                 <div class="notice notice-success">
@@ -206,6 +244,25 @@ class MG_Asset_Download_Admin {
                 'success'
             );
         }
+        
+        // Handle clearing the manual processing lock
+        if (
+            isset($_POST['action']) && 
+            $_POST['action'] === 'mg_asset_download_clear_lock' && 
+            isset($_POST['mg_clear_lock_nonce']) && 
+            wp_verify_nonce($_POST['mg_clear_lock_nonce'], 'mg_asset_download_clear_lock')
+        ) {
+            // Clear the lock
+            delete_option(MG_Asset_Download::MANUAL_PROCESSING_LOCK);
+            
+            // Redirect back to the settings page with a success message
+            add_settings_error(
+                'mg_asset_download',
+                'mg_asset_download_clear_lock',
+                __('Manual processing lock has been cleared.', 'mg-asset-download'),
+                'success'
+            );
+        }
     }
 
     /**
@@ -215,6 +272,14 @@ class MG_Asset_Download_Admin {
         // Check security nonce
         if (!isset($_POST['security']) || !wp_verify_nonce($_POST['security'], 'mg_asset_download_ajax_nonce')) {
             wp_send_json_error(array('message' => 'Security check failed'));
+        }
+        
+        // Check if this is the first request in a sequence
+        $first_request = !get_option(MG_Asset_Download::MANUAL_PROCESSING_LOCK, false);
+        
+        // Set the manual processing lock if this is the first request
+        if ($first_request) {
+            update_option(MG_Asset_Download::MANUAL_PROCESSING_LOCK, current_time('mysql'));
         }
         
         // Get the next unprocessed post
@@ -227,6 +292,10 @@ class MG_Asset_Download_Admin {
         // Check if we have a post to process
         if (empty($posts)) {
             // No more posts to process
+            
+            // Remove the manual processing lock
+            delete_option(MG_Asset_Download::MANUAL_PROCESSING_LOCK);
+            
             wp_send_json_success(array(
                 'complete' => true,
                 'total' => $total,

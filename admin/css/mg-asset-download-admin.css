@@ -48,3 +48,17 @@
     color: #555;
     font-style: italic;
 }
+
+.mg-processing-badge {
+    display: inline-block;
+    background-color: #ff9800;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.mg-processing-info {
+    color: #555;
+}

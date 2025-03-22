@@ -11,6 +11,18 @@
      * Initialize when document is ready
      */
     $(document).ready(function() {
+        // Set up a warning when leaving the page during manual processing
+        var isProcessing = false;
+        
+        window.addEventListener('beforeunload', function(e) {
+            if (isProcessing) {
+                // Show confirmation dialog
+                var confirmationMessage = 'Manual processing is currently running. If you leave, the process will be interrupted and might leave the lock active. Are you sure you want to leave?';
+                e.returnValue = confirmationMessage;
+                return confirmationMessage;
+            }
+        });
+        
         // Handle the manual process button
         $('.mg-asset-download-manual form').on('submit', function(e) {
             e.preventDefault();
@@ -28,6 +40,9 @@
                 $progressBar.width('0%');
                 $progressCount.text('0');
                 $progressStatus.text('Starting...');
+                
+                // Set the processing flag
+                isProcessing = true;
                 
                 // Process the first post
                 processNextPost(0, $button, $progressArea, $progressCount, $progressBar, $progressStatus);
@@ -69,6 +84,9 @@
                             $progressStatus.text('Processing complete!');
                             $button.prop('disabled', false).text('Process Assets Now');
                             
+                            // Clear the processing flag
+                            isProcessing = false;
+                            
                             // Reload page after a short delay to show updated stats
                             setTimeout(function() {
                                 window.location.reload();
@@ -82,11 +100,13 @@
                     } else {
                         $progressStatus.text('Error: ' + (response.data.message || 'Unknown error'));
                         $button.prop('disabled', false).text('Process Assets Now');
+                        isProcessing = false;
                     }
                 },
                 error: function(xhr, status, error) {
                     $progressStatus.text('AJAX Error: ' + error);
                     $button.prop('disabled', false).text('Process Assets Now');
+                    isProcessing = false;
                 }
             });
         }
