@@ -305,10 +305,16 @@ class MG_Asset_Download_Admin {
         
         // Process the post
         $post = $posts[0];
-        $this->plugin->process_post($post);
+        $process_result = $this->plugin->process_post($post);
         
         // Update the last run time
         update_option(MG_Asset_Download::LAST_RUN_OPTION, current_time('mysql'));
+        
+        // If processing failed, add a warning to the response
+        $message = 'Post processed successfully';
+        if (!$process_result) {
+            $message = 'Post processed with warnings (some assets may not have been downloaded)';
+        }
         
         // Send success response
         wp_send_json_success(array(
@@ -316,7 +322,8 @@ class MG_Asset_Download_Admin {
             'post_id' => $post->ID,
             'post_title' => $post->post_title,
             'total' => $total,
-            'message' => 'Post processed successfully'
+            'message' => $message,
+            'has_warnings' => !$process_result
         ));
     }
 

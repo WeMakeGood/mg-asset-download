@@ -165,6 +165,7 @@ class MG_Asset_Download {
      * Process a single post/page
      *
      * @param WP_Post $post The post to process
+     * @return boolean True if processing was successful, false otherwise
      */
     public function process_post($post) {
         $content = $post->post_content;
@@ -177,16 +178,30 @@ class MG_Asset_Download {
             $content = $this->process_external_assets($content, $post->ID);
             
             // Update the post content
-            wp_update_post(array(
+            $update_result = wp_update_post(array(
                 'ID' => $post->ID,
                 'post_content' => $content
             ));
             
+            if (is_wp_error($update_result)) {
+                // Log the error
+                error_log('MG Asset Download: Error updating post ' . $post->ID . ' - ' . $update_result->get_error_message());
+                
+                // Mark as failed
+                update_post_meta($post->ID, self::PROCESSED_META_KEY, 'failed');
+                return false;
+            }
+            
             // Mark as processed
             update_post_meta($post->ID, self::PROCESSED_META_KEY, 'completed');
+            return true;
         } catch (Exception $e) {
+            // Log the error
+            error_log('MG Asset Download: Exception processing post ' . $post->ID . ' - ' . $e->getMessage());
+            
             // Mark as failed if there's an error
             update_post_meta($post->ID, self::PROCESSED_META_KEY, 'failed');
+            return false;
         }
     }
 
@@ -300,10 +315,21 @@ class MG_Asset_Download {
         // Get the file data
         $response = wp_remote_get($url, array(
             'timeout' => 60,
-            'sslverify' => false
+            'sslverify' => false,
+            'redirection' => 5,
+            'httpversion' => '1.1',
+            'user-agent' => 'WordPress/' . get_bloginfo('version') . '; ' . get_bloginfo('url')
         ));
         
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+        if (is_wp_error($response)) {
+            // Log the error for debugging
+            error_log('MG Asset Download: Error downloading ' . $url . ' - ' . $response->get_error_message());
+            return false;
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            error_log('MG Asset Download: Error downloading ' . $url . ' - HTTP status code: ' . $response_code);
             return false;
         }
         

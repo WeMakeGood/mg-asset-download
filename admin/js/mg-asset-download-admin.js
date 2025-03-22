@@ -53,8 +53,16 @@
         
         /**
          * Process the next post via AJAX
+         * 
+         * @param {number} processed The number of posts processed so far
+         * @param {jQuery} $button The submit button element
+         * @param {jQuery} $progressArea The progress area element
+         * @param {jQuery} $progressCount The progress count element
+         * @param {jQuery} $progressBar The progress bar element
+         * @param {jQuery} $progressStatus The progress status element
+         * @param {number} retries The number of consecutive retries attempted (default 0)
          */
-        function processNextPost(processed, $button, $progressArea, $progressCount, $progressBar, $progressStatus) {
+        function processNextPost(processed, $button, $progressArea, $progressCount, $progressBar, $progressStatus, retries = 0) {
             $.ajax({
                 url: ajaxurl,
                 type: 'POST',
@@ -76,7 +84,14 @@
                         
                         // Update status
                         if (response.data.post_title) {
-                            $progressStatus.text('Processed: ' + response.data.post_title);
+                            var statusText = 'Processed: ' + response.data.post_title;
+                            
+                            // Add warning indicator if there were issues
+                            if (response.data.has_warnings) {
+                                statusText += ' (with warnings)';
+                            }
+                            
+                            $progressStatus.text(statusText);
                         }
                         
                         // Check if we're done or should continue
@@ -93,8 +108,9 @@
                             }, 2000);
                         } else {
                             // Process next post
+                            // Reset retry counter on success
                             setTimeout(function() {
-                                processNextPost(processed, $button, $progressArea, $progressCount, $progressBar, $progressStatus);
+                                processNextPost(processed, $button, $progressArea, $progressCount, $progressBar, $progressStatus, 0);
                             }, 500);
                         }
                     } else {
@@ -104,9 +120,44 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    $progressStatus.text('AJAX Error: ' + error);
-                    $button.prop('disabled', false).text('Process Assets Now');
-                    isProcessing = false;
+                    var statusCode = xhr.status;
+                    
+                    // Check if it's a server error (5xx status code) or other temporary error
+                    // Limit to 5 consecutive retries
+                    var maxRetries = 5;
+                    
+                    if ((statusCode >= 500 || status === 'timeout' || status === 'parsererror') && retries < maxRetries) {
+                        // Increment retry counter
+                        retries++;
+                        
+                        // Calculate backoff time (increases with each retry)
+                        var backoffTime = 3000 + (retries * 2000);
+                        
+                        // Update status to show retrying
+                        $progressStatus.text('Server error (' + statusCode + '): ' + error + '. Retry ' + retries + '/' + maxRetries + ' in ' + (backoffTime/1000) + ' seconds...');
+                        
+                        // Wait and retry with increasing backoff
+                        setTimeout(function() {
+                            $progressStatus.text('Retrying (attempt ' + retries + '/' + maxRetries + ')...');
+                            processNextPost(processed, $button, $progressArea, $progressCount, $progressBar, $progressStatus, retries);
+                        }, backoffTime);
+                        
+                        // Don't clear processing flag as we're going to retry
+                    } else {
+                        // Handle max retries reached or non-server errors
+                        if (retries >= maxRetries) {
+                            $progressStatus.text('Max retries reached after server errors. Processing halted. You can try again later.');
+                        } else {
+                            // For other errors (like 4xx), don't retry
+                            $progressStatus.text('AJAX Error: ' + error + ' (Status: ' + statusCode + '). Processing halted.');
+                        }
+                        
+                        // Add a helpful message about the lock
+                        $progressStatus.append('<br><br><em>Note: You may need to clear the manual processing lock from the admin page if you restart.</em>');
+                        
+                        $button.prop('disabled', false).text('Process Assets Now');
+                        isProcessing = false;
+                    }
                 }
             });
         }
