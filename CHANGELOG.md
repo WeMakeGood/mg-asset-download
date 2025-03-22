@@ -4,6 +4,13 @@ All notable changes to the MG Asset Download plugin will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-03-22
+### Added
+- AJAX retry mechanism for handling 502 and other server errors
+- Exponential backoff for retry attempts (up to 5 retries)
+- Improved error handling for file downloads with detailed logging
+- Warning indicators for posts with download issues
+
 ## [1.0.2] - 2025-03-22
 ### Added
 - Locking mechanism to prevent conflicts between WP Cron and manual processing
