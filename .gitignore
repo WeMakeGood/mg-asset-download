@@ -1,0 +1,42 @@
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Ignore editor files
+*.sublime-project
+*.sublime-workspace
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore node dependency directories
+node_modules/
+
+# Ignore composer dependencies
+vendor/
+
+# Ignore build files
+build/
+dist/
+
+# Ignore log files
+*.log
+logs/
+
+# Ignore packaged files
+*.zip
+*.tar.gz
+
+# Ignore WordPress specific files
+wp-config.php
+wp-content/advanced-cache.php
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/mu-plugins/
+wp-content/wp-cache-config.php
